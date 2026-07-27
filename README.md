@@ -57,8 +57,8 @@ Before you start, make sure the following are installed on your machine:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Lokesh-0916/HealthCare-Portal.git
-cd healthcare-portal
+git clone https://github.com/Lokesh-0916/AI-Powered-Healthcare-Management-System.git
+cd AI-Powered-Healthcare-Management-System
 ```
 
 ### 2. Install server dependencies
