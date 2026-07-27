@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 echo Starting HealthCare Portal...
 
 :: Run seed if this is the first time (no .seed marker file found)

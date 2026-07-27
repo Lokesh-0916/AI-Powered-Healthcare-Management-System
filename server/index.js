@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
+  origin: process.env.CLIENT_URL ? [process.env.CLIENT_URL, 'null'] : '*',
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
