@@ -260,3 +260,10 @@ The project uses **MongoDB** with **Mongoose**. You have two options:
 - Copy your connection string and set it as `MONGO_URI` in your `.env`
 
 > The application code does **not** need to change when switching between the two — only the `MONGO_URI` value changes.
+
+---
+
+## Author
+
+**Majji Lokesh Krishna**  
+GitHub: [@Lokesh-0916](https://github.com/Lokesh-0916)
