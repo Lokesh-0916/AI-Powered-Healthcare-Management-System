@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ask AI — Patient Portal | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-patient">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter" style="padding-bottom:0;display:flex;flex-direction:column;height:calc(100vh - 73px);">
+
+        <!-- Disclaimer banner -->
+        <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius);padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <div style="font-size:13px;color:var(--text-secondary);">
+            <strong style="color:var(--status-pending);">MediGuide AI</strong> provides general health information only. It is not a substitute for professional medical advice. Always consult a doctor for serious concerns.
+          </div>
+        </div>
+
+        <!-- Chat container -->
+        <div class="chat-container" style="flex:1;min-height:0;">
+          <div class="chat-messages" id="chat-messages">
+            <!-- Welcome message -->
+            <div class="chat-msg assistant">
+              <div class="msg-avatar" style="font-size:11px;font-weight:700;">AI</div>
+              <div>
+                <div class="msg-bubble">
+                  <p>Hi ${user_name}! I'm <strong>MediGuide</strong>, your personal health assistant.</p>
+                  <p>I can help you understand medical terms, explain symptoms, or give general wellness guidance. What's on your mind today?</p>
+                  <p style="font-size:12px;opacity:0.7;margin-top:8px;">I provide information, not diagnoses. See a doctor for serious concerns.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input area -->
+          <div class="chat-input-area">
+            <button class="mic-btn" id="mic-btn" title="Voice input (click to speak)">Mic</button>
+            <textarea
+              class="chat-input"
+              id="chat-input"
+              placeholder="Ask a health question…"
+              rows="1"
+              id="chat-input"
+            ></textarea>
+            <button class="btn btn-primary" id="send-btn" onclick="sendMessage()">
+              Send
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const user = Auth.require('patient');
+    const history = []; // Gemini conversation history
+
+    if (user) {
+      renderSidebar([
+        { href: 'dashboard.html', label: 'Dashboard',        match: 'dashboard' },
+        { href: 'details.html',   label: 'My Details',       match: 'details' },
+        { href: 'book.html',      label: 'Book Appointment', match: 'book' },
+        { href: 'ai-chat.html',   label: 'Ask AI',           match: 'ai-chat' },
+        { href: 'uploads.html',   label: 'My Reports',       match: 'uploads' },
+      ]);
+      renderTopbar('MediGuide AI', 'Your personal health assistant');
+
+      // Personalize welcome
+      document.querySelector('.msg-bubble p:first-child').innerHTML =
+        `Hi <strong>${user.name.split(' ')[0]}</strong>! I'm <strong>MediGuide</strong>, your personal health assistant.`;
+    }
+
+    // Send message 
+    async function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = '';
+      input.style.height = 'auto';
+
+      appendMessage('user', text);
+      history.push({ role: 'user', parts: [{ text }] });
+
+      // Typing indicator
+      const typingId = showTyping();
+      document.getElementById('send-btn').disabled = true;
+
+      try {
+        const data = await api.post('/patient/ai/chat', { messages: history });
+        removeTyping(typingId);
+        const reply = data.reply || 'Sorry, I had trouble responding. Please try again.';
+        appendMessage('assistant', reply);
+        history.push({ role: 'model', parts: [{ text: reply }] });
+      } catch (err) {
+        removeTyping(typingId);
+        appendMessage('assistant', 'Error: ' + err.message);
+      } finally {
+        document.getElementById('send-btn').disabled = false;
+      }
+    }
+
+    function appendMessage(role, text) {
+      const msgs = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = `chat-msg ${role}`;
+      div.innerHTML = `
+        <div class="msg-avatar" style="font-size:11px;font-weight:700;">${role === 'user' ? Auth.getInitials(user?.name) : 'AI'}</div>
+        <div>
+          <div class="msg-bubble">${renderMarkdown(text)}</div>
+        </div>
+      `;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function showTyping() {
+      const id = 'typing-' + Date.now();
+      const msgs = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = 'chat-msg assistant';
+      div.id = id;
+      div.innerHTML = `
+        <div class="msg-avatar" style="font-size:11px;font-weight:700;">AI</div>
+        <div class="msg-bubble">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+        </div>
+      `;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+      return id;
+    }
+
+    function removeTyping(id) {
+      document.getElementById(id)?.remove();
+    }
+
+    // Enter key to send 
+    document.getElementById('chat-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Auto-resize textarea
+    document.getElementById('chat-input').addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // Voice input (Web Speech API) 
+    const micBtn = document.getElementById('mic-btn');
+    let recognition = null;
+    let isRecording = false;
+
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-IN';
+
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+        document.getElementById('chat-input').value = transcript;
+      };
+
+      recognition.onend = () => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        micBtn.textContent = 'Mic';
+        // Auto-send if there's content
+        if (document.getElementById('chat-input').value.trim()) {
+          sendMessage();
+        }
+      };
+
+      recognition.onerror = (e) => {
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        micBtn.textContent = 'Mic';
+        if (e.error !== 'aborted') Toast.error('Microphone error: ' + e.error);
+      };
+
+      micBtn.addEventListener('click', () => {
+        if (isRecording) {
+          recognition.stop();
+        } else {
+          isRecording = true;
+          micBtn.classList.add('recording');
+          micBtn.textContent = 'Stop';
+          recognition.start();
+          Toast.info('Listening… speak now');
+        }
+      });
+    } else {
+      micBtn.disabled = true;
+      micBtn.title = 'Voice input not supported in this browser';
+      micBtn.style.opacity = '0.4';
+    }
+
+    // Suggested questions 
+    const suggestions = [
+      "What does 'HbA1c' mean in my blood test?",
+      "I have a persistent headache for 3 days. What could it be?",
+      "What foods should I avoid if I have high blood pressure?",
+      "How do I know if my fever needs a doctor's visit?",
+    ];
+
+    if (document.getElementById('chat-messages').children.length <= 1) {
+      setTimeout(() => {
+        const msgs = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;padding:4px 0;';
+        div.innerHTML = suggestions.map(s => `
+          <button onclick="usesuggestion(this, '${s.replace(/'/g, "\\'")}')"
+            style="background:var(--bg-surface);border:1px solid var(--border);border-radius:20px;padding:8px 14px;font-size:12px;color:var(--text-secondary);cursor:pointer;transition:all 0.2s;"
+            onmouseenter="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+            onmouseleave="this.style.borderColor='var(--border)';this.style.color='var(--text-secondary)'"
+          >${s}</button>
+        `).join('');
+        msgs.appendChild(div);
+        msgs.scrollTop = msgs.scrollHeight;
+      }, 500);
+    }
+
+    function usesuggestion(btn, text) {
+      btn.closest('div').remove();
+      document.getElementById('chat-input').value = text;
+      sendMessage();
+    }
+  </script>
+</body>
+</html>

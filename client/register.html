@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register — HealthCare Portal</title>
+  <meta name="description" content="Create your HealthCare Portal account as a patient, doctor, or reception staff.">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-bg-orb auth-bg-orb-1"></div>
+    <div class="auth-bg-orb auth-bg-orb-2"></div>
+
+    <div class="auth-card" style="max-width:500px;">
+      <div class="auth-logo">
+        <h1 class="auth-title">Create account</h1>
+        <p class="auth-subtitle">Join HealthCare Portal today</p>
+      </div>
+
+      <form id="register-form">
+        <div class="form-group">
+          <label class="form-label" for="name">Full name</label>
+          <input id="name" type="text" class="form-input" placeholder="Dr. Jane Smith" required autocomplete="name">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email address</label>
+          <input id="email" type="email" class="form-input" placeholder="you@example.com" required autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input id="password" type="password" class="form-input" placeholder="Minimum 6 characters" required minlength="6" autocomplete="new-password">
+        </div>
+
+        <input type="hidden" name="role" value="patient">
+
+        <div id="register-error" style="display:none; background:rgba(220,38,38,0.07);border:1px solid rgba(220,38,38,0.18);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--status-cancelled);margin-bottom:16px;"></div>
+
+        <button type="submit" class="btn btn-primary btn-lg" id="register-btn" style="width:100%;justify-content:center;">
+          Create Account
+        </button>
+      </form>
+
+      <div class="auth-link">
+        Already have an account? <a href="login.html">Sign in</a>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .role-option input { display: none; }
+    .role-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-secondary);
+    }
+    .role-option input:checked + .role-card {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+    .role-card:hover { border-color: var(--border-light); }
+  </style>
+
+  <script src="js/api.js?v=4"></script>
+  <script src="js/auth.js?v=4"></script>
+  <script>
+    Auth.redirectIfLoggedIn();
+
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('register-btn');
+      const errEl = document.getElementById('register-error');
+      errEl.style.display = 'none';
+
+      const body = {
+        name: document.getElementById('name').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        password: document.getElementById('password').value,
+        role: 'patient',
+      };
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Creating account...';
+
+      try {
+        const data = await api.post('/auth/register', body);
+        Auth.login(data.token, data.user);
+        Auth.redirectToPortal(data.user.role);
+      } catch (err) {
+        errEl.style.display = '';
+        errEl.textContent = '⚠️ ' + err.message;
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    });
+  </script>
+</body>
+</html>

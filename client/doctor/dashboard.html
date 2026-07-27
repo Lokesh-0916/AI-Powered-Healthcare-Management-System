@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Doctor Portal | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-doctor">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter">
+
+        <!-- Today's appointments -->
+        <div class="section-title">Today's Schedule</div>
+        <div id="appointments-list">
+          <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const user = Auth.require('doctor');
+    if (user) {
+      renderSidebar([
+        { href: 'dashboard.html',  label: 'Dashboard', match: 'dashboard' },
+        { href: 'patients.html',   label: 'Patients',  match: 'patients' },
+      ], 'portal-doctor');
+      // Strip any existing Dr. prefix before adding our own
+      const docDisplayName = user.name.replace(/^Dr\.?\s*/i, '');
+      renderTopbar("Dashboard", `Dr. ${docDisplayName} · ${user.specialization || 'General Physician'}`);
+      loadAppointments();
+    }
+
+    const STATUS_FLOW = { pending: 'waiting', waiting: 'inProgress', inProgress: 'done' };
+    const STATUS_LABELS = { pending: 'Mark Waiting', waiting: 'Start Consult', inProgress: 'Mark Done' };
+
+    async function loadAppointments() {
+      try {
+        const data = await api.get('/doctor/today');
+        const appts = data.appointments || [];
+
+        const listEl = document.getElementById('appointments-list');
+        if (!appts.length) {
+          listEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">No appointments today</div><div class="empty-state-sub">Enjoy your free day!</div></div>';
+          return;
+        }
+
+        listEl.innerHTML = appts.map(a => `
+          <div class="appt-card" style="cursor:default;" id="appt-${a._id}">
+            <div class="appt-time">${a.slot}</div>
+            <div class="appt-divider"></div>
+
+            <!-- Patient avatar -->
+            <div style="width:40px;height:40px;border-radius:50%;background:var(--accent-doctor-dim);color:var(--accent-doctor);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">
+              ${(a.patient?.name || '?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}
+            </div>
+
+            <div class="appt-info">
+              <div class="appt-name">${a.patient?.name || 'Unknown'}</div>
+              <div class="appt-reason">${a.reason}</div>
+              <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
+                ${a.patient?.bloodGroup ? `<span class="text-xs" style="color:var(--status-cancelled);">${a.patient.bloodGroup}</span>` : ''}
+                ${a.patient?.contact ? `<span class="text-xs text-muted">${a.patient.contact}</span>` : ''}
+              </div>
+            </div>
+
+            <div class="appt-meta" style="flex-direction:column;align-items:flex-end;gap:8px;">
+              ${statusBadge(a.status)}
+              <div style="display:flex;gap:6px;">
+                ${a.status !== 'done' && a.status !== 'cancelled' ? `
+                  <button class="btn btn-primary btn-sm"
+                    onclick="advanceStatus('${a._id}', '${STATUS_FLOW[a.status]}')"
+                    id="advance-${a._id}">
+                    ${STATUS_LABELS[a.status] || '—'}
+                  </button>
+                ` : ''}
+                <a href="patient.html?id=${a.patient?._id}&apptId=${a._id}" class="btn btn-ghost btn-sm">
+                  View Patient →
+                </a>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        Toast.error('Failed to load appointments: ' + err.message);
+        document.getElementById('appointments-list').innerHTML = '<div class="empty-state"><div class="empty-state-text">Could not load today\'s schedule</div></div>';
+      }
+    }
+
+
+    async function advanceStatus(apptId, newStatus) {
+      const btn = document.getElementById(`advance-${apptId}`);
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+      try {
+        await api.patch(`/doctor/appointments/${apptId}/status`, { status: newStatus });
+        Toast.success('Status updated!');
+        loadAppointments();
+      } catch (err) {
+        Toast.error('Update failed: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = STATUS_LABELS[Object.keys(STATUS_FLOW).find(k => STATUS_FLOW[k] === newStatus)] || '—';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — HealthCare Portal</title>
+  <meta name="description" content="Sign in to HealthCare Portal — your secure healthcare management portal for patients, doctors, and reception staff.">
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div class="auth-page">
+    <!-- Background orbs -->
+    <div class="auth-bg-orb auth-bg-orb-1"></div>
+    <div class="auth-bg-orb auth-bg-orb-2"></div>
+
+    <div class="auth-card">
+      <div class="auth-logo">
+        <h1 class="auth-title">Welcome back</h1>
+        <p class="auth-subtitle">Sign in to your HealthCare Portal account</p>
+      </div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label" for="email">Email address</label>
+          <input id="email" type="email" class="form-input" placeholder="you@example.com" required autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input id="password" type="password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full btn-lg" id="login-btn" style="width:100%;justify-content:center;margin-top:8px;">
+          Sign In
+        </button>
+      </form>
+
+      <!-- Demo accounts hint -->
+      <div style="margin-top:24px; background:rgba(0,169,140,0.06); border:1px solid rgba(0,169,140,0.15); border-radius:10px; padding:14px 16px;">
+        <div style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:10px; text-transform:uppercase; letter-spacing:0.8px; display:flex; justify-content:space-between; align-items:center;">
+          <span>Demo Accounts</span>
+          <span style="font-size:10px; font-weight:500; color:var(--text-muted); text-transform:none; letter-spacing:normal;">(click to auto-apply)</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button class="demo-fill" data-email="aarav.sharma@gmail.com" data-pass="patient123" style="text-align:left;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text-secondary);padding:4px 0;transition:color 0.2s;">
+            Patient &nbsp;&nbsp;→ aarav.sharma@gmail.com <span style="color:var(--text-muted);margin-left:6px;">/ patient123</span>
+          </button>
+          <button class="demo-fill" data-email="arjun.mehta@gmail.com" data-pass="doctor123" style="text-align:left;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text-secondary);padding:4px 0;transition:color 0.2s;">
+            Doctor &nbsp;&nbsp;&nbsp;→ arjun.mehta@gmail.com <span style="color:var(--text-muted);margin-left:6px;">/ doctor123</span>
+          </button>
+          <button class="demo-fill" data-email="ravi.kumar@gmail.com" data-pass="staff123" style="text-align:left;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text-secondary);padding:4px 0;transition:color 0.2s;">
+            Reception → ravi.kumar@gmail.com <span style="color:var(--text-muted);margin-left:6px;">/ staff123</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="auth-link">
+        Don't have an account? <a href="register.html">Register here</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js?v=4"></script>
+  <script src="js/auth.js?v=4"></script>
+  <script>
+    // Verify token with server before redirecting — avoids stale-token redirect loop
+    (async function checkSession() {
+      const token = Auth.getToken();
+      const user  = Auth.getUser();
+      if (!token || !user) return; // Not logged in, stay on page
+      try {
+        await api.get('/auth/me'); // will throw 401 if token is invalid
+        Auth.redirectToPortal(user.role); // Token valid → redirect
+      } catch (err) {
+        // Token is stale (user re-seeded, expired, etc.) — clear and stay
+        localStorage.removeItem('hc_token');
+        localStorage.removeItem('hc_user');
+      }
+    })();
+
+    // Demo fill buttons
+    document.querySelectorAll('.demo-fill').forEach(btn => {
+      btn.addEventListener('mouseenter', () => btn.style.color = 'var(--accent)');
+      btn.addEventListener('mouseleave', () => btn.style.color = 'var(--text-secondary)');
+      btn.addEventListener('click', () => {
+        document.getElementById('email').value = btn.dataset.email;
+        document.getElementById('password').value = btn.dataset.pass;
+        document.getElementById('email').focus();
+      });
+    });
+
+    // Login form
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Signing in...';
+
+      try {
+        const data = await api.post('/auth/login', { email, password });
+        Auth.login(data.token, data.user);
+        Auth.redirectToPortal(data.user.role);
+      } catch (err) {
+        // Show inline error
+        let errEl = document.getElementById('login-error');
+        if (!errEl) {
+          errEl = document.createElement('div');
+          errEl.id = 'login-error';
+          errEl.style.cssText = 'background:rgba(220,38,38,0.07);border:1px solid rgba(220,38,38,0.18);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--status-cancelled);margin-top:12px;';
+          document.getElementById('login-form').appendChild(errEl);
+        }
+        errEl.textContent = '⚠️ ' + err.message;
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      }
+    });
+  </script>
+</body>
+</html>

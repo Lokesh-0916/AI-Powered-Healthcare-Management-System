@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Reception Portal | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-reception">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter">
+
+
+        <!-- Fee summary -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px;">
+          <div class="card" style="border-color:rgba(16,185,129,0.2);">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Revenue Collected Today</div>
+            <div style="font-size:32px;font-weight:800;color:var(--status-done);">₹<span id="fee-collected">—</span></div>
+          </div>
+          <div class="card" style="border-color:rgba(239,68,68,0.2);">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Pending Payments</div>
+            <div style="font-size:32px;font-weight:800;color:var(--status-cancelled);">₹<span id="fee-pending">—</span></div>
+          </div>
+        </div>
+
+        <!-- Today's list -->
+        <div class="section-title">Today's All Appointments</div>
+        <div class="card" style="padding:0;">
+          <div id="today-list">
+            <div class="loading-center" style="padding:48px;"><div class="spinner spinner-lg"></div></div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const SIDEBAR_ITEMS = [
+      { href: 'dashboard.html',    label: 'Dashboard',        match: 'dashboard' },
+      { href: 'appointments.html', label: 'Appointments',     match: 'appointments' },
+      { href: 'fees.html',         label: 'Fees',             match: 'fees' },
+      { href: 'reminders.html',    label: 'Reminders',        match: 'reminders' },
+      { href: 'logs.html',         label: 'Patients History', match: 'logs' },
+    ];
+
+    const user = Auth.require('staff');
+    if (user) {
+      renderSidebar(SIDEBAR_ITEMS, 'portal-reception');
+      renderTopbar('Reception Dashboard', `Welcome, ${user.name}`);
+      loadData();
+    }
+
+    async function loadData() {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const [apptRes, feeRes] = await Promise.all([
+          api.get(`/reception/appointments?date=${today}`),
+          api.get(`/reception/fees/summary?date=${today}`),
+        ]);
+
+        const appts = apptRes.appointments || [];
+        document.getElementById('fee-collected').textContent = (feeRes.totalRevenue || 0).toLocaleString('en-IN');
+        document.getElementById('fee-pending').textContent = (feeRes.totalPending || 0).toLocaleString('en-IN');
+
+        const listEl = document.getElementById('today-list');
+        if (!appts.length) {
+          listEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">No appointments today</div></div>';
+          return;
+        }
+
+        // Group by doctor
+        const byDoctor = {};
+        appts.forEach(a => {
+          const dName = a.doctor?.name || 'Unknown';
+          if (!byDoctor[dName]) byDoctor[dName] = [];
+          byDoctor[dName].push(a);
+        });
+
+        listEl.innerHTML = Object.entries(byDoctor).map(([dName, dAppts]) => `
+          <div style="padding:16px 20px;border-bottom:1px solid var(--border);">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.8px;margin-bottom:10px;">${dName}</div>
+            ${dAppts.map(a => `
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
+                <div style="font-size:13px;font-weight:700;color:var(--accent-reception);min-width:72px;">${a.slot}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;font-weight:600;">${a.patient?.name || '—'}</div>
+                  <div class="text-muted text-xs">${a.reason}</div>
+                </div>
+                ${statusBadge(a.status)}
+                ${feeBadge(a.feePaid)}
+                <div class="text-sm" style="color:var(--text-secondary);min-width:50px;text-align:right;">${a.fee ? '₹' + a.fee : '—'}</div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('');
+      } catch (err) {
+        Toast.error('Failed to load dashboard: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

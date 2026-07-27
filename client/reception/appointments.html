@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appointments — Reception | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-reception">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter">
+
+        <!-- Filters + New button -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+          <input id="filter-date" type="date" class="form-input" style="max-width:180px;">
+          <select id="filter-doctor" class="form-select" style="max-width:220px;">
+            <option value="">All Doctors</option>
+          </select>
+          <select id="filter-status" class="form-select" style="max-width:160px;">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="waiting">Waiting</option>
+            <option value="inProgress">In Progress</option>
+            <option value="done">Done</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <button class="btn btn-ghost" onclick="loadAppointments()">🔍 Filter</button>
+          <div style="flex:1;"></div>
+          <button class="btn btn-primary" onclick="openModal('new-appt-modal')">+ New Appointment</button>
+        </div>
+
+        <div class="card" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Doctor</th>
+                  <th>Date</th>
+                  <th>Slot</th>
+                  <th>Phone</th>
+                  <th>Status</th>
+                  <th>Fee</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="appt-tbody">
+                <tr><td colspan="8" style="text-align:center;padding:32px;"><div class="spinner"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- New appointment modal -->
+  <div class="modal-backdrop" id="new-appt-modal">
+    <div class="modal" style="max-width:580px;">
+      <div class="modal-header">
+        <div class="modal-title">New Appointment</div>
+        <button class="modal-close" onclick="closeModal('new-appt-modal')">✕</button>
+      </div>
+
+      <!-- Walk-in toggle -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;padding:12px 16px;background:var(--bg-surface);border-radius:var(--radius-sm);">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;">
+          <input type="checkbox" id="walkin-toggle" onchange="toggleWalkin()" style="accent-color:var(--accent-reception);width:16px;height:16px;">
+          Walk-in Patient (not registered)
+        </label>
+      </div>
+
+      <!-- Registered patient selector (default) -->
+      <div id="registered-patient-fields">
+        <div class="form-group">
+          <label class="form-label">Patient</label>
+          <select id="new-patient" class="form-select"><option value="">Select patient…</option></select>
+        </div>
+      </div>
+
+      <!-- Walk-in fields (hidden by default) -->
+      <div id="walkin-fields" style="display:none;">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Full Name <span style="color:var(--status-cancelled);">*</span></label>
+            <input id="walkin-name" type="text" class="form-input" placeholder="e.g. Rahul Sharma">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Age <span style="color:var(--status-cancelled);">*</span></label>
+            <input id="walkin-age" type="number" class="form-input" placeholder="e.g. 34" min="1" max="120">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number <span style="color:var(--status-cancelled);">*</span></label>
+          <input id="walkin-phone" type="tel" class="form-input" placeholder="e.g. +91 98765 43210">
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Doctor</label>
+          <select id="new-doctor" class="form-select"><option value="">Select doctor…</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input id="new-date" type="date" class="form-input">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Slot</label>
+          <select id="new-slot" class="form-select">
+            <option>09:00 AM</option><option>09:30 AM</option><option>10:00 AM</option>
+            <option>10:30 AM</option><option>11:00 AM</option><option>11:30 AM</option>
+            <option>12:00 PM</option><option>02:00 PM</option><option>02:30 PM</option>
+            <option>03:00 PM</option><option>03:30 PM</option><option>04:00 PM</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fee (₹)</label>
+          <input id="new-fee" type="number" class="form-input" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reason for Visit</label>
+        <textarea id="new-reason" class="form-textarea" rows="2"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('new-appt-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="createAppointment()">Create Appointment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit modal -->
+  <div class="modal-backdrop" id="edit-appt-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Edit Appointment</div>
+        <button class="modal-close" onclick="closeModal('edit-appt-modal')">✕</button>
+      </div>
+      <input type="hidden" id="edit-id">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input id="edit-date" type="date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Slot</label>
+          <select id="edit-slot" class="form-select">
+            <option>09:00 AM</option><option>09:30 AM</option><option>10:00 AM</option>
+            <option>10:30 AM</option><option>11:00 AM</option><option>11:30 AM</option>
+            <option>12:00 PM</option><option>02:00 PM</option><option>02:30 PM</option>
+            <option>03:00 PM</option><option>03:30 PM</option><option>04:00 PM</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select id="edit-status" class="form-select">
+          <option value="pending">Pending</option>
+          <option value="waiting">Waiting</option>
+          <option value="inProgress">In Progress</option>
+          <option value="done">Done</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea id="edit-notes" class="form-textarea" rows="2" placeholder="Reschedule reason, staff notes…"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('edit-appt-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="updateAppointment()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const SIDEBAR_ITEMS = [
+      { href: 'dashboard.html',     label: 'Dashboard',        match: 'dashboard' },
+      { href: 'appointments.html',  label: 'Appointments',     match: 'appointments' },
+      { href: 'fees.html',          label: 'Fees',             match: 'fees' },
+      { href: 'reminders.html',     label: 'Reminders',        match: 'reminders' },
+      { href: 'logs.html',          label: 'Patients History', match: 'logs' },
+    ];
+    const user = Auth.require('staff');
+    if (user) {
+      renderSidebar(SIDEBAR_ITEMS, 'portal-reception');
+      renderTopbar('Manage Appointments', 'View, create and edit all appointments');
+      // Set default date filter to today
+      document.getElementById('new-date').value = new Date().toISOString().split('T')[0];
+      loadDoctors();
+      loadAppointments();
+    }
+
+    async function loadDoctors() {
+      try {
+        const data = await api.get('/reception/doctors');
+        const docs = data.doctors || [];
+        const filterSel = document.getElementById('filter-doctor');
+        const newDocSel = document.getElementById('new-doctor');
+        docs.forEach(d => {
+          filterSel.innerHTML += `<option value="${d._id}">${d.name}</option>`;
+          newDocSel.innerHTML += `<option value="${d._id}">${d.name}</option>`;
+        });
+      } catch (e) {}
+    }
+
+    async function loadPatientsList() {
+      try {
+        const data = await api.get('/reception/patients');
+        const sel = document.getElementById('new-patient');
+        sel.innerHTML = '<option value="">Select patient…</option>';
+        data.patients.forEach(p => { sel.innerHTML += `<option value="${p._id}">${p.name}</option>`; });
+      } catch (e) {}
+    }
+    loadPatientsList();
+
+    async function loadAppointments() {
+      const date   = document.getElementById('filter-date').value;
+      const doctor = document.getElementById('filter-doctor').value;
+      const status = document.getElementById('filter-status').value;
+
+      let qs = [];
+      if (date) qs.push(`date=${date}`);
+      if (doctor) qs.push(`doctorId=${doctor}`);
+      if (status) qs.push(`status=${status}`);
+
+      const tbody = document.getElementById('appt-tbody');
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;"><div class="spinner"></div></td></tr>';
+
+      try {
+        const data = await api.get('/reception/appointments?' + qs.join('&'));
+        const appts = (data.appointments || []).filter(a => !(a.status === 'done' && a.feePaid));
+        if (!appts.length) {
+          tbody.innerHTML = `<tr><td colspan="8">${'<div class="empty-state"><div class="empty-state-text">No appointments found</div></div>'}</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = appts.map(a => `
+          <tr>
+            <td><strong>${a.patient?.name || '—'}</strong></td>
+            <td>${a.doctor?.name || '—'}</td>
+            <td>${formatDate(a.date)}</td>
+            <td style="font-weight:600;color:var(--accent-reception);">${a.slot}</td>
+            <td class="text-muted text-sm">${a.patient?.contact || '—'}</td>
+            <td>${statusBadge(a.status)}</td>
+            <td>${a.fee ? '\u20b9' + a.fee + ' ' + feeBadge(a.feePaid) : '\u2014'}</td>
+            <td>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-ghost btn-sm" title="Edit" onclick="openEdit(${JSON.stringify(a).replace(/"/g,'&quot;')})">Edit</button>
+                <button class="btn btn-danger btn-sm" title="Cancel" onclick="cancelAppt('${a._id}', this)">Cancel</button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        Toast.error('Failed to load appointments: ' + err.message);
+      }
+    }
+
+    function toggleWalkin() {
+      const isWalkin = document.getElementById('walkin-toggle').checked;
+      document.getElementById('registered-patient-fields').style.display = isWalkin ? 'none' : '';
+      document.getElementById('walkin-fields').style.display = isWalkin ? '' : 'none';
+    }
+
+    async function createAppointment() {
+      const isWalkin = document.getElementById('walkin-toggle').checked;
+      const doctorId = document.getElementById('new-doctor').value;
+      const date     = document.getElementById('new-date').value;
+      const slot     = document.getElementById('new-slot').value;
+      const reason   = document.getElementById('new-reason').value.trim();
+      const fee      = parseFloat(document.getElementById('new-fee').value) || 0;
+
+      if (!doctorId || !date || !reason) {
+        Toast.warning('Please fill all required fields.'); return;
+      }
+
+      try {
+        if (isWalkin) {
+          const name  = document.getElementById('walkin-name').value.trim();
+          const age   = parseInt(document.getElementById('walkin-age').value) || 0;
+          const phone = document.getElementById('walkin-phone').value.trim();
+          if (!name || !phone || !age) {
+            Toast.warning('Please fill walk-in patient name, age and phone.'); return;
+          }
+          await api.post('/reception/appointments/walkin', { name, age, phone, doctorId, date, slot, reason, fee });
+        } else {
+          const patientId = document.getElementById('new-patient').value;
+          if (!patientId) { Toast.warning('Please select a patient.'); return; }
+          await api.post('/reception/appointments', { patientId, doctorId, date, slot, reason, fee });
+        }
+        closeModal('new-appt-modal');
+        // Reset walk-in toggle
+        document.getElementById('walkin-toggle').checked = false;
+        toggleWalkin();
+        Toast.success('Appointment created!');
+        loadAppointments();
+      } catch (err) {
+        Toast.error(err.message);
+      }
+    }
+
+    function openEdit(appt) {
+      document.getElementById('edit-id').value    = appt._id;
+      document.getElementById('edit-date').value  = appt.date?.split('T')[0] || '';
+      document.getElementById('edit-slot').value  = appt.slot;
+      document.getElementById('edit-status').value = appt.status;
+      document.getElementById('edit-notes').value = appt.notes || '';
+      openModal('edit-appt-modal');
+    }
+
+    async function updateAppointment() {
+      const id = document.getElementById('edit-id').value;
+      const body = {
+        date:   document.getElementById('edit-date').value,
+        slot:   document.getElementById('edit-slot').value,
+        status: document.getElementById('edit-status').value,
+        notes:  document.getElementById('edit-notes').value.trim(),
+      };
+      try {
+        await api.patch(`/reception/appointments/${id}`, body);
+        closeModal('edit-appt-modal');
+        Toast.success('Appointment updated!');
+        loadAppointments();
+      } catch (err) {
+        Toast.error(err.message);
+      }
+    }
+
+    async function cancelAppt(id, btn) {
+      if (!confirm('Cancel this appointment?')) return;
+      btn.disabled = true;
+      try {
+        await api.patch(`/reception/appointments/${id}`, { status: 'cancelled' });
+        Toast.success('Appointment cancelled.');
+        loadAppointments();
+      } catch (err) {
+        Toast.error(err.message);
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

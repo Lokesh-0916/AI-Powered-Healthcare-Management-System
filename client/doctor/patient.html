@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Patient Detail — Doctor Portal | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-doctor">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter">
+
+        <div id="loading-state" class="loading-center" style="height:300px;">
+          <div class="spinner spinner-lg"></div>
+        </div>
+
+        <div id="patient-content" style="display:none;">
+          <!-- Patient header -->
+          <div class="glass-card" style="display:flex;align-items:center;gap:20px;margin-bottom:28px;border-color:rgba(96,87,214,0.2);">
+
+            <div style="flex:1;">
+              <div style="font-size:22px;font-weight:800;" id="patient-name"></div>
+              <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;" id="patient-meta"></div>
+            </div>
+            <div>
+              <button class="btn btn-primary" id="ai-summary-btn" onclick="getAISummary()">
+                AI Summary
+              </button>
+            </div>
+          </div>
+
+          <!-- AI Summary box (hidden until loaded) -->
+          <div id="ai-summary-area" style="display:none;margin-bottom:28px;">
+            <div class="section-title">AI Clinical Summary</div>
+            <div class="ai-summary-box" id="ai-summary-content"></div>
+          </div>
+
+          <!-- Three columns -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;align-items:start;">
+
+            <!-- Notes -->
+            <div>
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">Private Notes</div>
+                  <button class="btn btn-ghost btn-sm" onclick="openModal('note-modal')">+ Add</button>
+                </div>
+                <div id="notes-list"><div class="spinner"></div></div>
+              </div>
+            </div>
+
+            <!-- Prescriptions -->
+            <div>
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">Prescriptions</div>
+                  <button class="btn btn-ghost btn-sm" onclick="openModal('rx-modal')">+ Add</button>
+                </div>
+                <div id="rx-list"><div class="spinner"></div></div>
+              </div>
+            </div>
+
+            <!-- Uploads & Appointments -->
+            <div>
+              <div class="card" style="margin-bottom:16px;">
+                <div class="card-title" style="margin-bottom:16px;">Uploaded Reports</div>
+                <div id="uploads-list"><div class="spinner"></div></div>
+              </div>
+              <div class="card">
+                <div class="card-title" style="margin-bottom:16px;">Visit History</div>
+                <div id="appts-list"><div class="spinner"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="not-found" style="display:none;">
+          <div class="empty-state">
+            <div class="empty-state-icon">❌</div>
+            <div class="empty-state-text">Patient not found</div>
+            <a href="dashboard.html" class="btn btn-ghost" style="margin-top:16px;">← Back to Dashboard</a>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Note modal -->
+  <div class="modal-backdrop" id="note-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Add Private Note</div>
+        <button class="modal-close" onclick="closeModal('note-modal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note Content</label>
+        <textarea id="note-content" class="form-textarea" rows="5" placeholder="Write your clinical observation, follow-up notes, or reminders…"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('note-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveNote()">Save Note</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prescription modal -->
+  <div class="modal-backdrop" id="rx-modal">
+    <div class="modal" style="max-width:640px;">
+      <div class="modal-header">
+        <div class="modal-title">Write Prescription</div>
+        <button class="modal-close" onclick="closeModal('rx-modal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Diagnosis</label>
+        <input id="rx-diagnosis" type="text" class="form-input" placeholder="e.g. Acute pharyngitis, Type 2 diabetes">
+      </div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">Medicines</div>
+        <div id="medicine-rows"></div>
+        <button class="btn btn-ghost btn-sm" onclick="addMedicineRow()" style="margin-top:8px;">+ Add Medicine</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Additional Notes</label>
+        <textarea id="rx-notes" class="form-textarea" rows="2" placeholder="Dietary advice, precautions, follow-up instructions…"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('rx-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveRx()">💊 Save Prescription</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const user = Auth.require('doctor');
+    const params = new URLSearchParams(window.location.search);
+    const patientId = params.get('id');
+    const apptId    = params.get('apptId');
+
+    if (user) {
+      renderSidebar([
+        { href: 'dashboard.html',  label: 'Dashboard', match: 'dashboard' },
+        { href: 'patients.html',   label: 'Patients',  match: 'patients' },
+      ], 'portal-doctor');
+      renderTopbar('Patient Detail', 'Full patient view');
+
+      if (!patientId) {
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('not-found').style.display = '';
+      } else {
+        loadPatient();
+      }
+    }
+
+    async function loadPatient() {
+      try {
+        const data = await api.get(`/doctor/patients/${patientId}`);
+        const { patient, appointments, prescriptions, notes, uploads } = data;
+
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('patient-content').style.display = '';
+
+        // Header
+        document.getElementById('patient-name').textContent = patient.name;
+        document.getElementById('patient-meta').innerHTML = [
+          patient.dob ? `DOB: ${formatDate(patient.dob)}` : null,
+          patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : null,
+          patient.bloodGroup ? `Blood: ${patient.bloodGroup}` : null,
+          patient.allergies ? `Allergies: ${patient.allergies}` : null,
+          patient.contact ? patient.contact : null,
+        ].filter(Boolean).map(s => `<span class="text-secondary text-sm">${s}</span>`).join('');
+
+
+        renderNotes(notes);
+        renderPrescriptions(prescriptions);
+        renderUploads(uploads);
+        renderAppointments(appointments);
+      } catch (err) {
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('not-found').style.display = '';
+      }
+    }
+
+    function renderNotes(notes) {
+      const el = document.getElementById('notes-list');
+      if (!notes.length) { el.innerHTML = emptyState('📝', 'No notes yet'); return; }
+      el.innerHTML = notes.map(n => `
+        <div class="note-card">
+          <div class="note-date">${formatDateTime(n.createdAt)}</div>
+          <div class="note-content">${n.content}</div>
+          <button class="btn btn-danger btn-sm" style="margin-top:10px;padding:4px 10px;font-size:11px;" onclick="deleteNote('${n._id}', this)">Delete</button>
+        </div>
+      `).join('');
+    }
+
+    function renderPrescriptions(rxs) {
+      const el = document.getElementById('rx-list');
+      if (!rxs.length) { el.innerHTML = emptyState('💊', 'No prescriptions yet'); return; }
+      el.innerHTML = rxs.map(rx => `
+        <div class="rx-card">
+          <div class="rx-date">${formatDate(rx.date)} — by Dr. ${user.name.replace(/^Dr\.?\s*/i, '')}</div>
+          ${rx.diagnosis ? `<div class="rx-diagnosis">${rx.diagnosis}</div>` : ''}
+          <div class="rx-medicines">
+            ${rx.medicines.map(m => `
+              <div class="rx-medicine">
+                <strong>${m.name}</strong>${m.dosage ? ` ${m.dosage}` : ''}${m.frequency ? ` · ${m.frequency}` : ''}${m.duration ? ` · ${m.duration}` : ''}
+              </div>
+            `).join('')}
+          </div>
+          ${rx.additionalNotes ? `<div class="text-sm text-muted" style="margin-top:8px;">📋 ${rx.additionalNotes}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function renderUploads(uploads) {
+      const el = document.getElementById('uploads-list');
+      if (!uploads.length) { el.innerHTML = emptyState('📁', 'No files uploaded'); return; }
+      el.innerHTML = uploads.map(u => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:20px;">${u.type === 'scan' ? '🩻' : u.type === 'labReport' ? '🧪' : '📄'}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.originalName}</div>
+            <div class="text-muted text-xs">${u.reportDate ? formatDate(u.reportDate) : '—'}</div>
+          </div>
+          <a href="http://localhost:5000/uploads/${u.filename}" target="_blank" style="color:var(--accent);font-size:13px;">View</a>
+        </div>
+      `).join('');
+    }
+
+    function renderAppointments(appts) {
+      const el = document.getElementById('appts-list');
+      // Only show actually completed visits
+      const done = appts.filter(a => a.status === 'done');
+      if (!done.length) { el.innerHTML = emptyState('📋', 'No past visits'); return; }
+      el.innerHTML = done.slice(0,6).map(a => `
+        <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:12px;font-weight:600;">${formatDate(a.date)} · ${a.slot}</div>
+            <div class="text-muted text-xs">${a.reason}</div>
+          </div>
+          ${statusBadge(a.status)}
+        </div>
+      `).join('');
+    }
+
+    // AI Summary 
+    async function getAISummary() {
+      const btn = document.getElementById('ai-summary-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Generating...';
+      document.getElementById('ai-summary-area').style.display = '';
+      document.getElementById('ai-summary-content').textContent = 'Analyzing patient data…';
+
+      try {
+        const data = await api.post(`/doctor/patients/${patientId}/ai-summary`, {});
+        document.getElementById('ai-summary-content').innerHTML = renderMarkdown(data.summary);
+        btn.innerHTML = 'Refresh Summary';
+      } catch (err) {
+        document.getElementById('ai-summary-content').textContent = '❌ ' + err.message;
+        btn.innerHTML = 'AI Summary';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Notes CRUD 
+    async function saveNote() {
+      const content = document.getElementById('note-content').value.trim();
+      if (!content) { Toast.warning('Note cannot be empty.'); return; }
+      try {
+        await api.post(`/doctor/patients/${patientId}/notes`, { content, appointmentId: apptId || undefined });
+        closeModal('note-modal');
+        document.getElementById('note-content').value = '';
+        Toast.success('Note saved!');
+        const notesData = await api.get(`/doctor/patients/${patientId}/notes`);
+        renderNotes(notesData.notes);
+      } catch (err) {
+        Toast.error('Failed to save note: ' + err.message);
+      }
+    }
+
+    async function deleteNote(noteId, btn) {
+      if (!confirm('Delete this note?')) return;
+      btn.disabled = true;
+      try {
+        await api.delete(`/doctor/notes/${noteId}`);
+        Toast.success('Note deleted.');
+        const notesData = await api.get(`/doctor/patients/${patientId}/notes`);
+        renderNotes(notesData.notes);
+      } catch (err) {
+        Toast.error(err.message);
+        btn.disabled = false;
+      }
+    }
+
+    // Prescriptions 
+    let medicineCount = 0;
+
+    function addMedicineRow() {
+      medicineCount++;
+      const id = medicineCount;
+      const row = document.createElement('div');
+      row.id = `med-row-${id}`;
+      row.style.cssText = 'background:var(--bg-surface);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;';
+      row.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Medicine ${id}</span>
+          <button onclick="document.getElementById('med-row-${id}').remove()" style="background:none;border:none;color:var(--status-cancelled);cursor:pointer;font-size:16px;">✕</button>
+        </div>
+        <div class="form-grid" style="gap:8px;">
+          <div class="form-group" style="margin-bottom:8px;"><input type="text" class="form-input med-name" placeholder="Medicine name" style="font-size:13px;padding:8px 10px;"></div>
+          <div class="form-group" style="margin-bottom:8px;"><input type="text" class="form-input med-dosage" placeholder="Dosage (e.g. 500mg)" style="font-size:13px;padding:8px 10px;"></div>
+        </div>
+        <div class="form-grid" style="gap:8px;">
+          <div class="form-group" style="margin-bottom:0;"><input type="text" class="form-input med-freq" placeholder="Frequency (e.g. Twice daily)" style="font-size:13px;padding:8px 10px;"></div>
+          <div class="form-group" style="margin-bottom:0;"><input type="text" class="form-input med-duration" placeholder="Duration (e.g. 5 days)" style="font-size:13px;padding:8px 10px;"></div>
+        </div>
+      `;
+      document.getElementById('medicine-rows').appendChild(row);
+    }
+
+    // Initialize with one row
+    addMedicineRow();
+
+    async function saveRx() {
+      const medicines = [];
+      document.querySelectorAll('[id^="med-row-"]').forEach(row => {
+        const name = row.querySelector('.med-name').value.trim();
+        if (name) {
+          medicines.push({
+            name,
+            dosage:    row.querySelector('.med-dosage').value.trim(),
+            frequency: row.querySelector('.med-freq').value.trim(),
+            duration:  row.querySelector('.med-duration').value.trim(),
+          });
+        }
+      });
+      if (!medicines.length) { Toast.warning('Add at least one medicine.'); return; }
+
+      try {
+        await api.post(`/doctor/patients/${patientId}/prescriptions`, {
+          medicines,
+          diagnosis:       document.getElementById('rx-diagnosis').value.trim(),
+          additionalNotes: document.getElementById('rx-notes').value.trim(),
+          appointmentId:   apptId || undefined,
+        });
+        closeModal('rx-modal');
+        Toast.success('Prescription saved!');
+        const rxData = await api.get(`/doctor/patients/${patientId}/prescriptions`);
+        renderPrescriptions(rxData.prescriptions);
+      } catch (err) {
+        Toast.error('Failed to save prescription: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

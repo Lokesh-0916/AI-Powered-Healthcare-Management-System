@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Patients History — Reception | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-reception">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter">
+
+        <!-- Search -->
+        <div style="display:flex;gap:12px;margin-bottom:24px;">
+          <input id="search-input" type="text" class="form-input" placeholder="Search by name, email or phone…" style="max-width:380px;">
+          <button class="btn btn-ghost" onclick="loadPatients()">Search</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('search-input').value='';loadPatients()">Clear</button>
+        </div>
+
+        <div id="search-input-live"></div>
+
+        <div class="card" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Patient</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Registered</th>
+                  <th>Completed Visits</th>
+                  <th>History</th>
+                </tr>
+              </thead>
+              <tbody id="patients-tbody">
+                <tr><td colspan="8" style="text-align:center;padding:32px;"><div class="spinner"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Visit history expansion -->
+        <div id="visit-history-panel" style="display:none;margin-top:24px;">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <div class="card-title" id="visit-patient-name"></div>
+                <div class="card-subtitle">Complete visit history</div>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="document.getElementById('visit-history-panel').style.display='none'">✕ Close</button>
+            </div>
+            <div id="visit-history-list"></div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const SIDEBAR_ITEMS = [
+      { href: 'dashboard.html',    label: 'Dashboard',        match: 'dashboard' },
+      { href: 'appointments.html', label: 'Appointments',     match: 'appointments' },
+      { href: 'fees.html',         label: 'Fees',             match: 'fees' },
+      { href: 'reminders.html',    label: 'Reminders',        match: 'reminders' },
+      { href: 'logs.html',         label: 'Patients History', match: 'logs' },
+    ];
+    const user = Auth.require('staff');
+    if (user) {
+      renderSidebar(SIDEBAR_ITEMS, 'portal-reception');
+      renderTopbar('Patients History', 'All registered patients and visit history');
+      loadPatients();
+    }
+
+    // Live search on Enter
+    document.getElementById('search-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') loadPatients();
+    });
+
+    async function loadPatients() {
+      const search = document.getElementById('search-input').value.trim();
+      const tbody = document.getElementById('patients-tbody');
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;"><div class="spinner"></div></td></tr>';
+
+      try {
+        const data = await api.get('/reception/patients' + (search ? `?search=${encodeURIComponent(search)}` : ''));
+        let patients = data.patients || [];
+        patients = patients.filter(p => p.visitCount > 0);
+        patients.sort((a, b) => a.name.localeCompare(b.name));
+
+        if (!patients.length) {
+          tbody.innerHTML = `<tr><td colspan="7">${'<div class="empty-state"><div class="empty-state-text">No patients found</div></div>'}</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = patients.map((p, i) => `
+          <tr>
+            <td class="text-muted">${i + 1}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <strong>${p.name}</strong>
+              </div>
+            </td>
+            <td class="text-secondary">${p.email}</td>
+            <td>${p.contact || '—'}</td>
+            <td>${formatDate(p.createdAt)}</td>
+            <td style="text-align:center;">
+              <span style="font-size:18px;font-weight:800;color:var(--accent-reception);">${p.visitCount || 0}</span>
+            </td>
+            <td>
+              <button class="btn btn-ghost btn-sm" onclick="loadVisitHistory('${p._id}', '${p.name.replace(/'/g,"\\'")}')">
+                View →
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        Toast.error('Failed to load patients: ' + err.message);
+      }
+    }
+
+    async function loadVisitHistory(patientId, name) {
+      const panel = document.getElementById('visit-history-panel');
+      const listEl = document.getElementById('visit-history-list');
+      document.getElementById('visit-patient-name').textContent = name;
+      panel.style.display = '';
+      listEl.innerHTML = '<div class="loading-center"><div class="spinner"></div></div>';
+      panel.scrollIntoView({ behavior: 'smooth' });
+
+      try {
+        const data = await api.get(`/reception/patients/${patientId}/appointments`);
+        const appts = data.appointments || [];
+        if (!appts.length) {
+          listEl.innerHTML = emptyState('', 'No visits recorded');
+          return;
+        }
+        listEl.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Doctor</th><th>Slot</th><th>Reason</th><th>Status</th><th>Fee</th></tr></thead>
+              <tbody>
+                ${appts.map(a => `
+                  <tr>
+                    <td>${formatDate(a.date)}</td>
+                    <td>${a.doctor?.name || '—'}</td>
+                    <td style="color:var(--accent-reception);font-weight:700;">${a.slot}</td>
+                    <td>${a.reason}</td>
+                    <td>${statusBadge(a.status)}</td>
+                    <td>${a.fee ? '₹' + a.fee + ' ' + feeBadge(a.feePaid) : '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        listEl.innerHTML = '<div class="text-danger">Failed to load history.</div>';
+      }
+    }
+  </script>
+</body>
+</html>

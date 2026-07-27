@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book Appointment — Patient Portal | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-patient">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter">
+        <div style="max-width:760px;">
+          <div class="page-header">
+            <h1>Book Appointment</h1>
+            <p>Choose a doctor, pick a date and time slot, then confirm.</p>
+          </div>
+
+          <!-- Step indicator -->
+          <div style="display:flex;gap:0;margin-bottom:32px;" id="steps">
+            <div class="step active" data-step="1" style="display:flex;align-items:center;gap:10px;flex:1;">
+              <div id="step-1-circle" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#000;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+              <div style="font-size:13px;font-weight:600;color:var(--accent);">Choose Doctor</div>
+              <div style="flex:1;height:2px;background:var(--border);margin-left:10px;" id="step-line-1"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex:1;">
+              <div id="step-2-circle" style="width:32px;height:32px;border-radius:50%;background:var(--border);color:var(--text-muted);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-muted);" id="step-2-label">Date &amp; Slot</div>
+              <div style="flex:1;height:2px;background:var(--border);margin-left:10px;" id="step-line-2"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div id="step-3-circle" style="width:32px;height:32px;border-radius:50%;background:var(--border);color:var(--text-muted);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-muted);" id="step-3-label">Confirm</div>
+            </div>
+          </div>
+
+          <!-- Step 1: Choose Doctor -->
+          <div id="step-1" class="card">
+            <div class="card-title" style="margin-bottom:20px;">Select a Doctor</div>
+            <div id="doctors-list">
+              <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+            </div>
+          </div>
+
+          <!-- Step 2: Date & Slot -->
+          <div id="step-2" class="card" style="display:none;">
+            <div style="margin-bottom:20px;">
+              <div class="card-title">Choose Date &amp; Time</div>
+              <div id="selected-doctor-label" class="text-muted text-sm mt-1"></div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="appt-date">Appointment Date</label>
+              <input id="appt-date" type="date" class="form-input" style="max-width:280px;">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Available Slots</label>
+              <div class="slot-grid" id="slot-grid">
+                <div class="text-muted text-sm">Pick a date first</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:20px;">
+              <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+              <button class="btn btn-primary" id="step2-next" disabled onclick="goStep(3)">Next →</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Confirm -->
+          <div id="step-3" class="card" style="display:none;">
+            <div class="card-title" style="margin-bottom:20px;">Confirm Appointment</div>
+
+            <div style="background:var(--bg-surface);border-radius:var(--radius);padding:20px;margin-bottom:20px;" id="confirm-summary"></div>
+
+            <div class="form-group">
+              <label class="form-label" for="reason">Reason for Visit</label>
+              <textarea id="reason" class="form-textarea" rows="3" placeholder="Briefly describe your symptoms or reason for visiting..." required></textarea>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:8px;">
+              <button class="btn btn-ghost" onclick="goStep(2)">← Back</button>
+              <button class="btn btn-primary" id="book-btn" onclick="confirmBooking()">Confirm Booking</button>
+            </div>
+          </div>
+
+          <!-- Success -->
+          <div id="step-success" style="display:none;" class="card" style="text-align:center;padding:48px;">
+            <div style="font-size:48px;font-weight:800;color:var(--accent);margin-bottom:16px;">✓</div>
+            <div style="font-size:22px;font-weight:700;margin-bottom:8px;">Appointment Booked!</div>
+            <div class="text-secondary" id="success-msg"></div>
+            <div style="display:flex;gap:12px;justify-content:center;margin-top:28px;">
+              <a href="dashboard.html" class="btn btn-primary">Go to Dashboard</a>
+              <button class="btn btn-ghost" onclick="resetBooking()">Book Another</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const user = Auth.require('patient');
+    let selectedDoctor = null;
+    let selectedSlot   = null;
+
+    const SLOTS = ['09:00 AM','09:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM',
+                   '12:00 PM','02:00 PM','02:30 PM','03:00 PM','03:30 PM','04:00 PM','04:30 PM'];
+
+    if (user) {
+      renderSidebar([
+        { href: 'dashboard.html', label: 'Dashboard',        match: 'dashboard' },
+        { href: 'details.html',   label: 'My Details',       match: 'details' },
+        { href: 'book.html',      label: 'Book Appointment', match: 'book' },
+        { href: 'ai-chat.html',   label: 'Ask AI',           match: 'ai-chat' },
+        { href: 'uploads.html',   label: 'My Reports',       match: 'uploads' },
+      ]);
+      renderTopbar('Book Appointment', 'Schedule a new visit');
+      loadDoctors();
+    }
+
+    async function loadDoctors() {
+      try {
+        const data = await api.get('/patient/doctors');
+        const listEl = document.getElementById('doctors-list');
+        if (!data.doctors.length) { listEl.innerHTML = '<div class="empty-state"><div class="empty-state-text">No doctors available</div></div>'; return; }
+        listEl.innerHTML = data.doctors.map(d => `
+          <div class="appt-card" onclick="selectDoctor(${JSON.stringify(d).replace(/"/g, '&quot;')})" id="doc-${d._id}" style="cursor:pointer;">
+            <div style="width:44px;height:44px;border-radius:50%;background:var(--accent-doctor-dim);color:var(--accent-doctor);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0;">
+              ${d.name.split(' ').pop()[0]}
+            </div>
+            <div class="appt-info">
+              <div class="appt-name">${d.name}</div>
+              <div class="appt-reason">${d.specialization || 'General Physician'}</div>
+            </div>
+            <div style="color:var(--accent);font-size:18px;">→</div>
+          </div>
+        `).join('');
+      } catch (err) {
+        Toast.error('Could not load doctors: ' + err.message);
+      }
+    }
+
+    function selectDoctor(doc) {
+      selectedDoctor = doc;
+      document.getElementById('selected-doctor-label').textContent = `With ${doc.name} · ${doc.specialization || 'General'}`;
+      // Set min date to today
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('appt-date').min = today;
+      document.getElementById('appt-date').value = today;
+      loadSlots();
+      goStep(2);
+    }
+
+    document.getElementById('appt-date').addEventListener('change', loadSlots);
+
+    async function loadSlots() {
+      selectedSlot = null;
+      document.getElementById('step2-next').disabled = true;
+      const grid = document.getElementById('slot-grid');
+      const date = document.getElementById('appt-date').value;
+      if (!date || !selectedDoctor) return;
+
+      grid.innerHTML = '<div class="text-muted text-sm">Loading slots...</div>';
+      try {
+        const data = await api.get(`/patient/doctors/${selectedDoctor._id}/slots?date=${date}`);
+        const booked = data.bookedSlots || [];
+
+        // if booking for today, drop slots whose time has already passed
+        const isToday = date === new Date().toISOString().split('T')[0];
+        const now = new Date();
+
+        const available = SLOTS.filter(s => {
+          if (booked.includes(s)) return false;
+          if (isToday) {
+            const [time, period] = s.split(' ');
+            let [h, m] = time.split(':').map(Number);
+            if (period === 'PM' && h !== 12) h += 12;
+            if (period === 'AM' && h === 12) h = 0;
+            const slotDate = new Date();
+            slotDate.setHours(h, m, 0, 0);
+            if (slotDate <= now) return false;
+          }
+          return true;
+        });
+
+        if (!available.length) {
+          grid.innerHTML = '<div class="text-muted text-sm">No slots available for this date.</div>';
+          return;
+        }
+        grid.innerHTML = available.map(s =>
+          `<button class="slot-btn" onclick="selectSlot(this, '${s}')">${s}</button>`
+        ).join('');
+      } catch (err) {
+        grid.innerHTML = '<div class="text-muted text-sm">Could not load slots.</div>';
+      }
+    }
+
+    function selectSlot(btn, slot) {
+      document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedSlot = slot;
+      document.getElementById('step2-next').disabled = false;
+    }
+
+    function goStep(n) {
+      [1,2,3].forEach(i => document.getElementById(`step-${i}`).style.display = 'none');
+      document.getElementById(`step-${n}`).style.display = '';
+
+      // Update step indicator styles
+      [1,2,3].forEach(i => {
+        const circle = document.getElementById(`step-${i}-circle`);
+        const completed = i < n;
+        const active = i === n;
+        circle.style.background = active ? 'var(--accent)' : completed ? 'rgba(0,169,140,0.25)' : 'var(--border)';
+        circle.style.color = active ? '#fff' : completed ? 'var(--accent)' : 'var(--text-muted)';
+        if (i < 3) {
+          const lbl = document.getElementById(`step-${i+1}-label`);
+          if (lbl) lbl.style.color = (i+1 <= n) ? 'var(--text-primary)' : 'var(--text-muted)';
+        }
+      });
+
+      if (n === 3) {
+        document.getElementById('confirm-summary').innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;gap:12px;"><div><div class="text-muted text-xs">Doctor</div><div style="font-weight:600;">${selectedDoctor?.name}</div></div></div>
+            <div style="display:flex;gap:12px;"><div><div class="text-muted text-xs">Date</div><div style="font-weight:600;">${formatDate(document.getElementById('appt-date').value, {weekday:'long'})}</div></div></div>
+            <div style="display:flex;gap:12px;"><div><div class="text-muted text-xs">Time</div><div style="font-weight:600;">${selectedSlot}</div></div></div>
+          </div>
+        `;
+      }
+    }
+
+    async function confirmBooking() {
+      const reason = document.getElementById('reason').value.trim();
+      if (!reason) { Toast.warning('Please enter a reason for the visit.'); return; }
+      const btn = document.getElementById('book-btn');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Booking...';
+      try {
+        const data = await api.post('/patient/appointments', {
+          doctorId: selectedDoctor._id,
+          date:     document.getElementById('appt-date').value,
+          slot:     selectedSlot,
+          reason,
+        });
+        document.getElementById('step-3').style.display = 'none';
+        document.getElementById('step-success').style.display = '';
+        document.getElementById('success-msg').textContent =
+          `Your appointment with ${data.appointment.doctor?.name} is confirmed for ${formatDate(data.appointment.date)} at ${data.appointment.slot}.`;
+      } catch (err) {
+        Toast.error(err.message);
+        btn.disabled = false; btn.textContent = 'Confirm Booking';
+      }
+    }
+
+    function resetBooking() {
+      selectedDoctor = null; selectedSlot = null;
+      document.getElementById('reason').value = '';
+      document.getElementById('step-success').style.display = 'none';
+      const btn = document.getElementById('book-btn');
+      btn.disabled = false;
+      btn.textContent = 'Confirm Booking';
+      goStep(1);
+    }
+  </script>
+</body>
+</html>

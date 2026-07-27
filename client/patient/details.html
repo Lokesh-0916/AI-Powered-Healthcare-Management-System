@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Details — Patient Portal | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-patient">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter">
+        <div style="max-width:760px;">
+
+          <!-- Static View (shown by default) -->
+          <div id="view-mode">
+            <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;">
+              <div>
+                <h1>My Details</h1>
+                <p>Your personal and health profile information.</p>
+              </div>
+              <button class="btn btn-primary" onclick="enterEditMode()" style="margin-top:4px;">Edit Details</button>
+            </div>
+
+            <div class="card" id="profile-view">
+              <div class="loading-center"><div class="spinner"></div></div>
+            </div>
+          </div>
+
+          <!-- Edit Form (hidden by default) -->
+          <div id="edit-mode" style="display:none;">
+            <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;">
+              <div>
+                <h1>Edit Details</h1>
+                <p>Update your personal and health information.</p>
+              </div>
+              <button class="btn btn-ghost" onclick="cancelEdit()">Cancel</button>
+            </div>
+
+            <div class="card">
+              <form id="profile-form">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label" for="name">Full Name</label>
+                    <input id="name" type="text" class="form-input" placeholder="Your full name">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="email">Email Address</label>
+                    <input id="email" type="email" class="form-input" disabled style="opacity:0.5;cursor:not-allowed;" title="Email cannot be changed">
+                  </div>
+                </div>
+
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label" for="dob">Date of Birth</label>
+                    <input id="dob" type="date" class="form-input">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="gender">Gender</label>
+                    <select id="gender" class="form-select">
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other / Prefer not to say</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label" for="contact">Phone Number</label>
+                    <input id="contact" type="tel" class="form-input" placeholder="+91 98765 43210">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="bloodGroup">Blood Group</label>
+                    <select id="bloodGroup" class="form-select">
+                      <option value="">Select blood group</option>
+                      <option>A+</option><option>A-</option>
+                      <option>B+</option><option>B-</option>
+                      <option>AB+</option><option>AB-</option>
+                      <option>O+</option><option>O-</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="address">Address</label>
+                  <textarea id="address" class="form-textarea" rows="2" placeholder="Your home address"></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="allergies">Known Allergies</label>
+                  <input id="allergies" type="text" class="form-input" placeholder="e.g. Penicillin, Peanuts, Latex (or 'None')">
+                  <div class="text-sm text-muted mt-1">Shown to your doctor before treatment.</div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="emergencyContact">Emergency Contact Number</label>
+                  <input id="emergencyContact" type="tel" class="form-input" placeholder="A family member's number">
+                </div>
+
+                <div style="display:flex;gap:12px;margin-top:8px;">
+                  <button type="submit" class="btn btn-primary" id="save-btn">Save Changes</button>
+                  <button type="button" class="btn btn-ghost" onclick="cancelEdit()">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const user = Auth.require('patient');
+    let profileData = {};
+
+    if (user) {
+      renderSidebar([
+        { href: 'dashboard.html', label: 'Dashboard',        match: 'dashboard' },
+        { href: 'details.html',   label: 'My Details',       match: 'details' },
+        { href: 'book.html',      label: 'Book Appointment', match: 'book' },
+        { href: 'ai-chat.html',   label: 'Ask AI',           match: 'ai-chat' },
+        { href: 'uploads.html',   label: 'My Reports',       match: 'uploads' },
+      ]);
+      renderTopbar('My Details', 'Your health profile');
+      loadProfile();
+    }
+
+    async function loadProfile() {
+      try {
+        const data = await api.get('/patient/profile');
+        profileData = data.user;
+        renderStaticView(profileData);
+      } catch (err) {
+        Toast.error('Failed to load profile: ' + err.message);
+      }
+    }
+
+    function renderStaticView(p) {
+      const dob = p.dob ? new Date(p.dob).toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' }) : '—';
+      document.getElementById('profile-view').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px 40px;">
+          ${infoRow('Full Name',        p.name      || '—')}
+          ${infoRow('Email',            p.email     || '—')}
+          ${infoRow('Date of Birth',    dob)}
+          ${infoRow('Gender',           p.gender ? (p.gender.charAt(0).toUpperCase() + p.gender.slice(1)) : '—')}
+          ${infoRow('Phone Number',     p.contact   || '—')}
+          ${infoRow('Blood Group',      p.bloodGroup || '—')}
+          ${infoRow('Address',          p.address   || '—')}
+          ${infoRow('Known Allergies',  p.allergies || '—')}
+          ${infoRow('Emergency Contact',p.emergencyContact || '—')}
+        </div>
+      `;
+    }
+
+    function infoRow(label, value) {
+      return `
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:4px;">${label}</div>
+          <div style="font-size:14px;color:var(--text-primary);font-weight:500;">${value}</div>
+        </div>
+      `;
+    }
+
+    function enterEditMode() {
+      // Populate form with current data
+      const p = profileData;
+      document.getElementById('name').value            = p.name || '';
+      document.getElementById('email').value           = p.email || '';
+      document.getElementById('dob').value             = p.dob ? p.dob.split('T')[0] : '';
+      document.getElementById('gender').value          = p.gender || '';
+      document.getElementById('contact').value         = p.contact || '';
+      document.getElementById('bloodGroup').value      = p.bloodGroup || '';
+      document.getElementById('address').value         = p.address || '';
+      document.getElementById('allergies').value       = p.allergies || '';
+      document.getElementById('emergencyContact').value = p.emergencyContact || '';
+
+      document.getElementById('view-mode').style.display = 'none';
+      document.getElementById('edit-mode').style.display  = '';
+    }
+
+    function cancelEdit() {
+      document.getElementById('edit-mode').style.display  = 'none';
+      document.getElementById('view-mode').style.display  = '';
+    }
+
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Saving...';
+
+      const body = {
+        name:             document.getElementById('name').value.trim(),
+        dob:              document.getElementById('dob').value || undefined,
+        gender:           document.getElementById('gender').value || undefined,
+        contact:          document.getElementById('contact').value.trim(),
+        bloodGroup:       document.getElementById('bloodGroup').value || undefined,
+        address:          document.getElementById('address').value.trim(),
+        allergies:        document.getElementById('allergies').value.trim(),
+        emergencyContact: document.getElementById('emergencyContact').value.trim(),
+      };
+
+      try {
+        const data = await api.put('/patient/profile', body);
+        Auth.login(Auth.getToken(), data.user);
+        profileData = data.user;
+        Toast.success('Profile saved successfully!');
+        cancelEdit();
+        renderStaticView(profileData);
+      } catch (err) {
+        Toast.error('Save failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+      }
+    });
+  </script>
+</body>
+</html>

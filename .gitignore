@@ -1,0 +1,43 @@
+# ============================================================
+#  HealthCare Portal — .gitignore
+# ============================================================
+
+# ------ Secrets & Environment ------
+# Real env file with API keys, DB URI, JWT secret — NEVER commit this
+server/.env
+
+# ------ Node.js ------
+# Dependencies installed via npm install — not needed in the repo
+server/node_modules/
+
+# npm debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ------ Uploads ------
+# User-uploaded files (profile pics, documents, etc.) — runtime data
+server/uploads/*
+# Keep the uploads folder itself in the repo (as an empty placeholder)
+!server/uploads/.gitkeep
+
+# ------ Seed marker ------
+# Tracks whether the DB has been seeded. Not committed so every fresh clone auto-seeds once.
+server/.seed
+
+# ------ OS & Editor Junk ------
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# VS Code workspace settings (optional — remove the line below if you want to share settings)
+.vscode/
+
+# ------ Logs & Runtime ------
+*.log
+logs/

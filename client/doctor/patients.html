@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Patients — Doctor Portal | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-doctor">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter">
+
+        <!-- Search bar -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+          <input id="search-input" type="text" class="form-input" style="max-width:320px;"
+            placeholder="Search by name or contact…" oninput="debounceSearch()">
+          <button class="btn btn-ghost" onclick="loadPatients()">🔍 Search</button>
+          <div style="flex:1;"></div>
+          <div id="patient-count" class="text-muted text-sm"></div>
+        </div>
+
+        <!-- Patient table -->
+        <div class="card" style="padding:0;">
+          <div id="patients-table-wrap">
+            <div class="loading-center" style="padding:56px;"><div class="spinner spinner-lg"></div></div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const user = Auth.require('doctor');
+    if (user) {
+      renderSidebar([
+        { href: 'dashboard.html',  label: 'Dashboard', match: 'dashboard' },
+        { href: 'patients.html',   label: 'Patients',  match: 'patients' },
+      ], 'portal-doctor');
+      const docDisplayName = user.name.replace(/^Dr\.?\s*/i, '');
+      renderTopbar('Patients History', `Dr. ${docDisplayName} · ${user.specialization || 'General Physician'}`);
+      loadPatients();
+    }
+
+    let _debounceTimer = null;
+    function debounceSearch() {
+      clearTimeout(_debounceTimer);
+      _debounceTimer = setTimeout(loadPatients, 350);
+    }
+
+    async function loadPatients() {
+      const wrap = document.getElementById('patients-table-wrap');
+      const search = document.getElementById('search-input').value.trim();
+      wrap.innerHTML = '<div class="loading-center" style="padding:56px;"><div class="spinner spinner-lg"></div></div>';
+
+      try {
+        const data = await api.get('/doctor/all-patients' + (search ? `?search=${encodeURIComponent(search)}` : ''));
+        const patients = data.patients || [];
+
+        document.getElementById('patient-count').textContent = `${patients.length} patient${patients.length !== 1 ? 's' : ''}`;
+
+        if (!patients.length) {
+          wrap.innerHTML = '<div class="empty-state" style="padding:56px;"><div class="empty-state-text">No patients found</div><div class="empty-state-sub">Patients will appear here after consultations.</div></div>';
+          return;
+        }
+
+        wrap.innerHTML = `
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Contact</th>
+                  <th>Total Visits</th>
+                  <th>Last Visit</th>
+                  <th>Recent Reason</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${patients.map(p => `
+                  <tr>
+                    <td>
+                      <div>
+                        <strong>${p.patient?.name || '—'}</strong>
+                        ${p.patient?.gender ? `<div class="text-xs text-muted" style="margin-top:2px;">${p.patient.gender}</div>` : ''}
+                      </div>
+                    </td>
+                    <td class="text-muted">${p.patient?.contact || '—'}</td>
+                    <td><span style="font-weight:700;color:var(--accent-doctor);">${p.totalVisits}</span></td>
+                    <td class="text-muted">${formatDate(p.lastVisit)}</td>
+                    <td class="text-muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                      ${p.appointments?.[0]?.reason || '—'}
+                    </td>
+                    <td>
+                      <a href="patient.html?id=${p.patient?._id}" class="btn btn-ghost btn-sm">View →</a>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        wrap.innerHTML = '<div class="empty-state" style="padding:56px;"><div class="empty-state-text">Could not load patient history</div></div>';
+        Toast.error('Failed to load patients: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

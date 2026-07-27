@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fees — Reception | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-reception">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter">
+
+        <!-- Summary + Date filter -->
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
+          <input id="filter-date" type="date" class="form-input" style="max-width:180px;" onchange="loadFees()">
+          <button class="btn btn-ghost" onclick="loadFees()">Load</button>
+          <div style="flex:1;"></div>
+          <div class="card card-sm" style="display:flex;gap:24px;align-items:center;">
+            <div style="text-align:center;">
+              <div style="font-size:22px;font-weight:800;color:var(--status-done);">₹<span id="sum-paid">0</span></div>
+              <div class="text-muted text-xs">Collected</div>
+            </div>
+            <div style="width:1px;height:40px;background:var(--border);"></div>
+            <div style="text-align:center;">
+              <div style="font-size:22px;font-weight:800;color:var(--status-cancelled);">₹<span id="sum-pending">0</span></div>
+              <div class="text-muted text-xs">Pending</div>
+            </div>
+            <div style="width:1px;height:40px;background:var(--border);"></div>
+            <div style="text-align:center;">
+              <div style="font-size:22px;font-weight:800;color:var(--accent-reception);">₹<span id="sum-total">0</span></div>
+              <div class="text-muted text-xs">Total</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Doctor</th>
+                  <th>Date</th>
+                  <th>Slot</th>
+                  <th>Status</th>
+                  <th>Fee (₹)</th>
+                  <th>Payment</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="fee-tbody">
+                <tr><td colspan="8" style="text-align:center;padding:32px;"><div class="spinner"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Edit fee modal -->
+  <div class="modal-backdrop" id="fee-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Update Fee</div>
+        <button class="modal-close" onclick="closeModal('fee-modal')">✕</button>
+      </div>
+      <input type="hidden" id="fee-appt-id">
+      <div style="margin-bottom:12px;padding:12px;background:var(--bg-surface);border-radius:var(--radius-sm);" id="fee-modal-patient"></div>
+      <div class="form-group">
+        <label class="form-label">Fee Amount (₹)</label>
+        <input id="fee-amount" type="number" class="form-input" placeholder="e.g. 500" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="fee-paid" style="width:18px;height:18px;cursor:pointer;">
+          Mark as Paid
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('fee-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveFee()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const SIDEBAR_ITEMS = [
+      { href: 'dashboard.html',    label: 'Dashboard',        match: 'dashboard' },
+      { href: 'appointments.html', label: 'Appointments',     match: 'appointments' },
+      { href: 'fees.html',         label: 'Fees',             match: 'fees' },
+      { href: 'reminders.html',    label: 'Reminders',        match: 'reminders' },
+      { href: 'logs.html',         label: 'Patients History', match: 'logs' },
+    ];
+    const user = Auth.require('staff');
+    if (user) {
+      renderSidebar(SIDEBAR_ITEMS, 'portal-reception');
+      renderTopbar('Fee Management', 'Track and update appointment payments');
+      document.getElementById('filter-date').value = '';
+      loadFees();
+    }
+
+    async function loadFees() {
+      const date = document.getElementById('filter-date').value;
+      const tbody = document.getElementById('fee-tbody');
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;"><div class="spinner"></div></td></tr>';
+
+      try {
+        const [apptRes, feeRes] = await Promise.all([
+          api.get(`/reception/appointments${date ? '?date='+date : ''}`),
+          api.get(`/reception/fees/summary${date ? '?date='+date : ''}`),
+        ]);
+
+        let appts = apptRes.appointments || [];
+        // Exclude done+paid — already settled, no action needed
+        appts = appts.filter(a => !(a.status === 'done' && a.feePaid));
+        appts.sort((a, b) => (a.fee || 0) - (b.fee || 0));
+        let paid = 0, pending = 0;
+        appts.forEach(a => { if (a.feePaid) paid += a.fee || 0; else pending += a.fee || 0; });
+        document.getElementById('sum-paid').textContent    = paid.toLocaleString('en-IN');
+        document.getElementById('sum-pending').textContent = pending.toLocaleString('en-IN');
+        document.getElementById('sum-total').textContent   = (paid + pending).toLocaleString('en-IN');
+
+        if (!appts.length) {
+          tbody.innerHTML = `<tr><td colspan="8">${'<div class="empty-state"><div class="empty-state-text">No pending fee appointments</div></div>'}</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = appts.map(a => `
+          <tr>
+            <td><strong>${a.patient?.name || '—'}</strong></td>
+            <td>${a.doctor?.name || '—'}</td>
+            <td>${formatDate(a.date)}</td>
+            <td style="color:var(--accent-reception);font-weight:700;">${a.slot}</td>
+            <td>${statusBadge(a.status)}</td>
+            <td style="font-weight:700;">${a.fee ? '₹' + a.fee.toLocaleString('en-IN') + ' ' + feeBadge(a.feePaid) : '—'}</td>
+            <td>
+              <button class="btn btn-ghost btn-sm" onclick='openFeeModal(${JSON.stringify(a).replace(/"/g,"&quot;")})'>
+                Edit
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        Toast.error('Failed to load fees: ' + err.message);
+      }
+    }
+
+    function openFeeModal(appt) {
+      document.getElementById('fee-appt-id').value   = appt._id;
+      document.getElementById('fee-amount').value     = appt.fee || 0;
+      document.getElementById('fee-paid').checked     = !!appt.feePaid;
+      document.getElementById('fee-modal-patient').innerHTML = `
+        <strong>${appt.patient?.name || '—'}</strong>
+        <span class="text-muted text-sm"> · ${appt.doctor?.name || ''} · ${formatDate(appt.date)} · ${appt.slot}</span>
+      `;
+      openModal('fee-modal');
+    }
+
+    async function saveFee() {
+      const id      = document.getElementById('fee-appt-id').value;
+      const fee     = parseFloat(document.getElementById('fee-amount').value) || 0;
+      const feePaid = document.getElementById('fee-paid').checked;
+      try {
+        await api.patch(`/reception/appointments/${id}/fee`, { fee, feePaid });
+        closeModal('fee-modal');
+        Toast.success('Fee updated!');
+        loadFees();
+      } catch (err) {
+        Toast.error(err.message);
+      }
+    }
+  </script>
+</body>
+</html>
