@@ -1,6 +1,11 @@
-# HealthCare Portal
+# AI Powered Healthcare Management System
 
-A full-stack, role-based healthcare management system that connects **Patients**, **Doctors**, and **Reception staff** in a single, unified platform — powered by Node.js, MongoDB, and an integrated AI assistant.
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=flat-square&logo=mongodb&logoColor=white)
+![Express.js](https://img.shields.io/badge/Express.js-000000?style=flat-square&logo=express&logoColor=white)
+![Gemini AI](https://img.shields.io/badge/Gemini_AI-4285F4?style=flat-square&logo=google&logoColor=white)
+
+A full-stack, role-based healthcare management system that connects **Patients**, **Doctors**, and **Reception staff** in a single, unified platform. It streamlines core hospital workflows (like appointments, records, and prescriptions) while featuring an integrated Google Gemini AI assistant to answer patient health queries.
 
 ---
 
@@ -24,10 +29,10 @@ A full-stack, role-based healthcare management system that connects **Patients**
 
 ## Overview
 
-The **HealthCare Portal** is a locally-hosted web application that digitises core hospital workflows. It provides three separate role-based dashboards, each tailored to the specific needs of that user type:
+The **AI Powered Healthcare Management System** is a web application that digitises core hospital workflows. It provides three separate role-based dashboards, each tailored to the specific needs of that user type:
 
 - **Patients** can book appointments, view prescriptions, upload medical reports, and chat with an AI health assistant.
-- **Doctors** can view their patient list, manage appointments, write notes and prescriptions, and review patient-uploaded files.
+- **Doctors** can view their patient list, manage appointments, write notes and prescriptions, review patient-uploaded files, and instantly generate AI summaries of patient data.
 - **Reception staff** can manage appointments, handle fee records, set reminders, and view system-wide logs.
 
 All three roles share a single login/register page and are automatically redirected to their respective dashboards after authentication.
@@ -137,6 +142,7 @@ Open `client/login.html` directly in your browser, or serve it with a tool like 
   - Issue prescriptions
   - Review patient-uploaded reports
   - Manage appointments
+  - **AI Summaries** — Instantly generate patient history and report summaries using Gemini AI
 
 ### Reception Portal
 
