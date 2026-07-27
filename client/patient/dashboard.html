@@ -37,11 +37,12 @@
     const user = Auth.require('patient');
     if (user) {
       renderSidebar([
-        { href: 'dashboard.html', label: 'Dashboard',        match: 'dashboard' },
-        { href: 'details.html',   label: 'My Details',       match: 'details' },
-        { href: 'book.html',      label: 'Book Appointment', match: 'book' },
-        { href: 'ai-chat.html',   label: 'Ask AI',           match: 'ai-chat' },
-        { href: 'uploads.html',   label: 'My Reports',       match: 'uploads' },
+        { href: 'dashboard.html',     label: 'Dashboard',        match: 'dashboard' },
+        { href: 'details.html',       label: 'My Details',       match: 'details' },
+        { href: 'book.html',          label: 'Book Appointment', match: 'book' },
+        { href: 'prescriptions.html', label: 'My Prescriptions', match: 'prescriptions' },
+        { href: 'uploads.html',       label: 'My Reports',       match: 'uploads' },
+        { href: 'ai-chat.html',       label: 'Ask AI',           match: 'ai-chat' },
       ]);
       renderTopbar('Dashboard', `Welcome back, ${user.name.split(' ')[0]}`);
       loadData();

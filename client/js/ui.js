@@ -67,7 +67,9 @@ function renderSidebar(navItems, portalClass = '') {
         <div class="user-name">${user.name}</div>
         <div class="user-role">${capitalizeRole(user.role)}</div>
       </div>
-      <button class="logout-btn" title="Logout" onclick="Auth.logout()">&#9211;</button>
+      <button class="logout-btn" title="Logout" onclick="Auth.logout()">
+        Logout
+      </button>
     </div>
   `;
 }

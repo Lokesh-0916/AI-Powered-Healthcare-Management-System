@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Prescriptions — Patient Portal | HealthCare Portal</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body class="portal-patient">
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <div class="main-content">
+      <header id="topbar" class="topbar"></header>
+      <main class="page-content page-enter">
+        <div class="page-header">
+          <h1>My Prescriptions</h1>
+          <p>Review prescriptions issued by your doctors.</p>
+        </div>
+
+        <div id="rx-list">
+          <div class="loading-center"><div class="spinner spinner-lg"></div></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="../js/api.js?v=4"></script>
+  <script src="../js/auth.js?v=4"></script>
+  <script src="../js/ui.js?v=4"></script>
+  <script>
+    const user = Auth.require('patient');
+
+    if (user) {
+      renderSidebar([
+        { href: 'dashboard.html',     label: 'Dashboard',        match: 'dashboard' },
+        { href: 'details.html',       label: 'My Details',       match: 'details' },
+        { href: 'book.html',          label: 'Book Appointment', match: 'book' },
+        { href: 'prescriptions.html', label: 'My Prescriptions', match: 'prescriptions' },
+        { href: 'uploads.html',       label: 'My Reports',       match: 'uploads' },
+        { href: 'ai-chat.html',       label: 'Ask AI',           match: 'ai-chat' },
+      ]);
+      renderTopbar('My Prescriptions', 'Your medication history');
+      loadPrescriptions();
+    }
+
+    async function loadPrescriptions() {
+      try {
+        const data = await api.get('/patient/prescriptions');
+        const rxs = data.prescriptions || [];
+        const el = document.getElementById('rx-list');
+
+        if (!rxs.length) {
+          el.innerHTML = '<div class="empty-state"><div class="empty-state-text">No prescriptions yet</div><div class="empty-state-sub">You have not been issued any prescriptions.</div></div>';
+          return;
+        }
+
+        el.innerHTML = rxs.map(rx => {
+          const docName = (rx.doctor?.name || '—').replace(/^Dr\.?\s*/i, '');
+          return `
+            <div class="rx-card" style="margin-bottom:16px;">
+              <div class="rx-date" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>${formatDate(rx.date)}</span>
+                <span style="color:var(--accent);font-weight:600;">Dr. ${docName}</span>
+              </div>
+              ${rx.diagnosis ? `<div class="rx-diagnosis" style="margin-top:8px;"><strong>Diagnosis:</strong> ${rx.diagnosis}</div>` : ''}
+              <div class="rx-medicines" style="margin-top:12px;">
+                ${rx.medicines.map(m => `
+                  <div class="rx-medicine" style="background:var(--bg-surface);padding:8px 12px;border-radius:var(--radius-sm);margin-bottom:8px;">
+                    <div style="font-weight:700;font-size:14px;">${m.name}</div>
+                    <div style="display:flex;gap:12px;font-size:13px;color:var(--text-secondary);margin-top:4px;">
+                      ${m.dosage ? `<span><strong>Dose:</strong> ${m.dosage}</span>` : ''}
+                      ${m.frequency ? `<span><strong>Freq:</strong> ${m.frequency}</span>` : ''}
+                      ${m.duration ? `<span><strong>Duration:</strong> ${m.duration}</span>` : ''}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+              ${rx.additionalNotes ? `<div class="text-sm text-muted" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">📋 <strong>Notes:</strong> ${rx.additionalNotes}</div>` : ''}
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        Toast.error('Failed to load prescriptions: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

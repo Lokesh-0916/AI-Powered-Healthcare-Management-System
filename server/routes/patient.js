@@ -7,6 +7,7 @@ const { chat } = require('../services/gemini');
 const User = require('../models/User');
 const Appointment = require('../models/Appointment');
 const Upload = require('../models/Upload');
+const Prescription = require('../models/Prescription');
 
 const isPatient = [protect, requireRole('patient')];
 
@@ -135,6 +136,17 @@ router.get('/uploads', ...isPatient, async (req, res) => {
   try {
     const uploads = await Upload.find({ patient: req.user._id }).sort({ reportDate: -1, createdAt: -1 });
     res.json({ uploads });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/prescriptions', ...isPatient, async (req, res) => {
+  try {
+    const prescriptions = await Prescription.find({ patient: req.user._id })
+      .populate('doctor', 'name specialization')
+      .sort({ date: -1 });
+    res.json({ prescriptions });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
