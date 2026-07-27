@@ -1,6 +1,6 @@
 # HealthCare Portal
 
-> A full-stack, role-based healthcare management system that connects **Patients**, **Doctors**, and **Reception staff** in a single, unified platform — powered by Node.js, MongoDB, and an integrated AI assistant.
+A full-stack, role-based healthcare management system that connects **Patients**, **Doctors**, and **Reception staff** in a single, unified platform — powered by Node.js, MongoDB, and an integrated AI assistant.
 
 ---
 
@@ -50,7 +50,7 @@ Before you start, make sure the following are installed on your machine:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/healthcare-portal.git
+git clone https://github.com/Lokesh-0916/HealthCare-Portal.git
 cd healthcare-portal
 ```
 
