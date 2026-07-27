@@ -132,6 +132,7 @@ Open `client/login.html` directly in your browser, or serve it with a tool like 
 - **Dashboard** — Overview of upcoming appointments and recent activity
 - **Book Appointment** — Schedule appointments with available doctors
 - **My Details** — View and manage personal health information
+- **My Prescriptions** — View doctor-issued medical prescriptions and dosages
 - **My Uploads** — Upload and manage medical reports/documents (PDF)
 - **AI Chat** — Chat with a Gemini-powered AI health assistant
 
