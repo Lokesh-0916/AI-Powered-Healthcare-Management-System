@@ -259,7 +259,6 @@ The project uses **MongoDB** with **Mongoose**. You have two options:
 - Whitelist your IP address
 - Copy your connection string and set it as `MONGO_URI` in your `.env`
 
-> The application code does **not** need to change when switching between the two — only the `MONGO_URI` value changes.
 
 ---
 
