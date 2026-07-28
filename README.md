@@ -274,7 +274,3 @@ The project uses **MongoDB** with **Mongoose**. You have two options:
 ## Author
 
 **Majji Lokesh Krishna**
-
----
-
-[Project Report File](AI_Powered_Healthcare_Management_System_Report_File.pdf)
